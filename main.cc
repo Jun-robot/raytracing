@@ -4,10 +4,31 @@
 
 #include <iostream>
 
-color ray_color(const ray& r) {
-    vec3 unit_direction = unit_vector(r.direction()); // 単位ベクトルに変換(-1~1)
-    auto a = 0.5*(unit_direction.y() + 1.0); // y成分を0~1に正規化
-    return (1.0-a)*color(1.0, 1.0, 1.0) + a*color(0.5, 0.7, 1.0);
+double hit_sphere(const point3 &center, double radius, const ray &r) {
+  vec3 oc =
+      center - r.origin(); // rayの始点(カメラの位置)から球の中心へのベクトル
+  auto a = r.direction().length_squared();
+  auto h = dot(r.direction(), oc);
+  auto c = oc.length_squared() - radius * radius;
+  auto discriminant = h * h - a * c;
+
+  if (discriminant < 0) {
+    return -1.0;
+  } else {
+    return (h - std::sqrt(discriminant)) / a;
+  }
+}
+
+color ray_color(const ray &r) {
+  auto t = hit_sphere(point3(0, 0, -1), 0.5, r); // 中心(0,0,-1)、半径0.5の球に当たるか
+  if (t > 0.0) {
+    vec3 N = unit_vector(r.at(t) - vec3(0, 0, -1));
+    return 0.5 * color(N.x() + 1, N.y() + 1, N.z() + 1);
+  }
+
+  vec3 unit_direction = unit_vector(r.direction()); // 単位ベクトルに変換(-1~1)
+  auto a = 0.5 * (unit_direction.y() + 1.0);        // y成分を0~1に正規化
+  return (1.0 - a) * color(1.0, 1.0, 1.0) + a * color(0.5, 0.7, 1.0);
 }
 
 int main() {
@@ -44,7 +65,8 @@ int main() {
 
   // Render
 
-  std::cout << "P3\n" << image_width << ' ' << image_height << "\n255\n";
+  std::cout << "P3\n"
+            << image_width << ' ' << image_height << "\n255\n";
 
   for (int j = 0; j < image_height; j++) {
     std::clog << "\rScanlines remaining: " << (image_height - j) << ' '
@@ -53,7 +75,7 @@ int main() {
       auto pixel_center =
           pixel00_loc + (i * pixel_delta_u) + (j * pixel_delta_v);
       auto ray_direction = pixel_center - camera_center; // 単位ベクトルにしない
-      ray r(camera_center, ray_direction);
+      ray r(camera_center, ray_direction);               // カメラ位置からピクセル位置への光線
 
       color pixel_color = ray_color(r);
       write_color(std::cout, pixel_color);
